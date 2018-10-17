@@ -5,6 +5,7 @@ using Sitecore.Data.Items;
 using System.Text.RegularExpressions;
 using System.Linq;
 using System.Collections.Generic;
+using System.Xml;
 using Sitecore.Links;
 using Sitecore.Pipelines.HttpRequest;
 using Sitecore.Diagnostics;
@@ -35,31 +36,31 @@ namespace SharedSource.RedirectModule.Processors
                 var requestedPath = HttpContext.Current.Request.Url.AbsolutePath;
                 var requestedPathAndQuery = HttpContext.Current.Request.Url.PathAndQuery;
                 var db = Sitecore.Context.Database;
-
+                var domain = HttpContext.Current.Request.Url.Host;
                 // First, we check for exact matches because those take priority over pattern matches.
                 if (Sitecore.Configuration.Settings.GetBoolSetting(Constants.Settings.RedirExactMatch, true))
                 {
-                    CheckForDirectMatch(db, requestedUrl, requestedPath, args);
+                    CheckForDirectMatch(db, domain, requestedUrl, requestedPath, args);
                 }
 
                 // Next, we check for pattern matches because we didn't hit on an exact match.
                 if (Sitecore.Configuration.Settings.GetBoolSetting(Constants.Settings.RedirPatternMatch, true))
                 {
-                    CheckForRegExMatch(db, requestedUrl, requestedPathAndQuery, args);
+                    CheckForRegExMatch(db, domain, requestedUrl, requestedPathAndQuery, args);
                 }
 
                 // Next, we check for rule matches because we didn't hit on an exact match or pattern match.
                 if (Sitecore.Configuration.Settings.GetBoolSetting(Constants.Settings.RedirRuleMatch, true))
                 {
-                    CheckForRulesMatch(db, requestedUrl, requestedPathAndQuery, args);
+                    CheckForRulesMatch(db, domain, requestedUrl, requestedPathAndQuery, args);
                 }
             }
         }
 
-        private void CheckForDirectMatch(Database db, string requestedUrl, string requestedPath, HttpRequestArgs args)
+        private void CheckForDirectMatch(Database db, string domain, string requestedUrl, string requestedPath, HttpRequestArgs args)
         {
             // Loop through the exact match entries to look for a match.
-            foreach (Item possibleRedirect in GetRedirects(db, Constants.Templates.RedirectUrl, Constants.Templates.VersionedRedirectUrl, Sitecore.Configuration.Settings.GetSetting(Constants.Settings.QueryExactMatch)))
+            foreach (Item possibleRedirect in GetRedirects(db, domain, Constants.Templates.RedirectUrl, Constants.Templates.VersionedRedirectUrl, Sitecore.Configuration.Settings.GetSetting(Constants.Settings.QueryExactMatch)))
             {
                 if (requestedUrl.Equals(possibleRedirect[Constants.Fields.RequestedUrl], StringComparison.OrdinalIgnoreCase) ||
                      requestedPath.Equals(possibleRedirect[Constants.Fields.RequestedUrl], StringComparison.OrdinalIgnoreCase))
@@ -88,10 +89,10 @@ namespace SharedSource.RedirectModule.Processors
             }
         }
 
-        private void CheckForRegExMatch(Database db, string requestedUrl, string requestedPathAndQuery, HttpRequestArgs args)
+        private void CheckForRegExMatch(Database db, string domain, string requestedUrl, string requestedPathAndQuery, HttpRequestArgs args)
         {
             // Loop through the pattern match items to find a match
-            foreach (Item possibleRedirectPattern in GetRedirects(db, Constants.Templates.RedirectPattern, Constants.Templates.VersionedRedirectPattern, Sitecore.Configuration.Settings.GetSetting(Constants.Settings.QueryExactMatch)))
+            foreach (Item possibleRedirectPattern in GetRedirects(db, domain, Constants.Templates.RedirectPattern, Constants.Templates.VersionedRedirectPattern, Sitecore.Configuration.Settings.GetSetting(Constants.Settings.QueryExactMatch)))
             {
                 var redirectPath = string.Empty;
                 if (Regex.IsMatch(requestedUrl, possibleRedirectPattern[Constants.Fields.RequestedExpression], RegexOptions.IgnoreCase))
@@ -126,10 +127,10 @@ namespace SharedSource.RedirectModule.Processors
             }
         }
 
-        private void CheckForRulesMatch(Database db, string requestedUrl, string requestedPathAndQuery, HttpRequestArgs args)
+        private void CheckForRulesMatch(Database db, string domain, string requestedUrl, string requestedPathAndQuery, HttpRequestArgs args)
         {
             // Loop through the pattern match items to find a match
-            foreach (Item possibleRedirectRule in GetRedirects(db, Constants.Templates.RedirectRule, Constants.Templates.VersionedRedirectRule, Sitecore.Configuration.Settings.GetSetting(Constants.Settings.QueryExactMatch)))
+            foreach (Item possibleRedirectRule in GetRedirects(db, domain, Constants.Templates.RedirectRule, Constants.Templates.VersionedRedirectRule, Sitecore.Configuration.Settings.GetSetting(Constants.Settings.QueryExactMatch)))
             {
                 var ruleContext = new RuleContext();
                 ruleContext.Parameters.Add("newUrl", requestedUrl);
@@ -152,7 +153,7 @@ namespace SharedSource.RedirectModule.Processors
 
                 if (ruleContext.Parameters["newUrl"] != null && ruleContext.Parameters["newUrl"].ToString() != string.Empty && ruleContext.Parameters["newUrl"].ToString() != requestedUrl)
                 {
-                   var responseStatus = GetResponseStatus(possibleRedirectRule);
+                    var responseStatus = GetResponseStatus(possibleRedirectRule);
                     // The query string will be in the URL already, so don't break it apart.
                     SendResponse(ruleContext.Parameters["newUrl"].ToString(), string.Empty, responseStatus, args);
                 }
@@ -179,11 +180,12 @@ namespace SharedSource.RedirectModule.Processors
         ///  US/EN language has no active versions), an additional LINQ query has to be run to filter for language.
         ///  Choose your query type appropriately.
         /// </summary>
-        public virtual IEnumerable<Item> GetRedirects(Database db, string templateName, string versionedTemplateName, string queryType)
+        public virtual IEnumerable<Item> GetRedirects(Database db, string domain, string templateName, string versionedTemplateName, string queryType)
         {
             // Based off the config file, we can run different types of queries.
             IEnumerable<Item> ret = null;
-            var redirectRoot = Sitecore.Configuration.Settings.GetSetting(Constants.Settings.RedirectRootNode);
+            var redirectRoot = GetRedirectRootNode(domain);
+
             switch (queryType)
             {
                 case "fast": // fast query
@@ -218,6 +220,40 @@ namespace SharedSource.RedirectModule.Processors
 
             // make sure to return an empty list instead of null
             return ret ?? new Item[0];
+        }
+
+        /// <summary>
+        /// Looks for RedirectRootNode based off the config file, supports multi-site.
+        /// </summary>
+        /// <param name="domain"></param>
+        /// <returns>String containing the RedirectRootNode path.</returns>
+        private string GetRedirectRootNode(string domain)
+        {
+            try
+            {
+                var multiSiteSettings = Sitecore.Configuration.Factory.GetConfigNode("redirectMultiSiteSettings");
+                if (multiSiteSettings != null)
+                {
+                    Sitecore.Diagnostics.Log.Debug("Found redirectMultiSiteSettings node.");
+                    foreach (XmlNode site in multiSiteSettings)
+                    {
+                        if (site?.Attributes?["domain"] == null) continue;
+                        if (site.Attributes["domain"].Value.Equals(domain, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return site.Attributes["redirectRootNode"]?.Value ?? Sitecore.Configuration.Settings.GetSetting(Constants.Settings.RedirectRootNode);
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Sitecore.Diagnostics.Log.Error("Could not load redirectMultiSiteSettings. Using default RedirectRootNode configuration as fallback.", e, this);
+            }
+
+            Sitecore.Diagnostics.Log.Debug("Use RedirectRootNode setting by default");
+            //Use RedirectRootNode setting by default.
+            return Sitecore.Configuration.Settings.GetSetting(Constants.Settings.RedirectRootNode);
+
         }
 
         /// <summary>
