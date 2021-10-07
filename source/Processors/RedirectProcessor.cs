@@ -35,8 +35,7 @@ namespace SharedSource.RedirectModule.Processors
                 var requestedUrl = HttpContext.Current.Request.Url.ToString();
                 var requestedPath = HttpContext.Current.Request.Url.AbsolutePath;
                 var requestedPathAndQuery = HttpContext.Current.Request.Url.PathAndQuery;
-                //var db = Sitecore.Context.Database;
-                Database db = Sitecore.Configuration.Factory.GetDatabase("master");
+                var db = Sitecore.Context.Database;
                 var domain = HttpContext.Current.Request.Url.Host;
                 // First, we check for exact matches because those take priority over pattern matches.
                 if (Sitecore.Configuration.Settings.GetBoolSetting(Constants.Settings.RedirExactMatch, true))
