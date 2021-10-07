@@ -5,3 +5,5 @@ obj/
 *.user
 *.suo
 libraries/
+/.vs/VSWorkspaceState.json
+/.vs/slnx.sqlite

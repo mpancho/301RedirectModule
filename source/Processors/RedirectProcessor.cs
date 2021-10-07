@@ -35,7 +35,8 @@ namespace SharedSource.RedirectModule.Processors
                 var requestedUrl = HttpContext.Current.Request.Url.ToString();
                 var requestedPath = HttpContext.Current.Request.Url.AbsolutePath;
                 var requestedPathAndQuery = HttpContext.Current.Request.Url.PathAndQuery;
-                var db = Sitecore.Context.Database;
+                //var db = Sitecore.Context.Database;
+                Database db = Sitecore.Configuration.Factory.GetDatabase("master");
                 var domain = HttpContext.Current.Request.Url.Host;
                 // First, we check for exact matches because those take priority over pattern matches.
                 if (Sitecore.Configuration.Settings.GetBoolSetting(Constants.Settings.RedirExactMatch, true))
@@ -267,10 +268,10 @@ namespace SharedSource.RedirectModule.Processors
 
         private static void SendResponse(string redirectToUrl, string queryString, ResponseStatus responseStatusCode, HttpRequestArgs args)
         {
-            args.Context.Response.Status = responseStatusCode.Status;
-            args.Context.Response.StatusCode = responseStatusCode.StatusCode;
-            args.Context.Response.AddHeader("Location", redirectToUrl + queryString);
-            args.Context.Response.End();
+            args.HttpContext.Response.Status = responseStatusCode.Status;
+            args.HttpContext.Response.StatusCode = responseStatusCode.StatusCode;
+            args.HttpContext.Response.AddHeader("Location", redirectToUrl + queryString);
+            args.HttpContext.Response.End();
         }
 
         private static string GetRedirectToItemUrl(Item redirectToItem)

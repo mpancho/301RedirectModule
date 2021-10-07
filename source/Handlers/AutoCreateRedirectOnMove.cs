@@ -12,6 +12,9 @@ namespace SharedSource.RedirectModule.Handlers
 {
     public class AutoCreateRedirectOnMove
     {
+        string pathNeamb = "/neamb/home";
+        string pathSeiumb = "/neambc/home";
+
         protected void OnItemMoved(object sender, EventArgs args)
         {
             //ensures arguments aren't null
@@ -46,6 +49,17 @@ namespace SharedSource.RedirectModule.Handlers
                 Database db = Sitecore.Configuration.Factory.GetDatabase("master");
                 // Get the generated folder underneath the redirects folder.  It is a bucketed item.
                 Item parentItem = db.GetItem(new ID("{46CE2092-FF8D-454E-B826-A2ADDB7E0BA3}"));
+
+                if (parentPath.Contains(pathNeamb))
+                {
+                    if (parentPath.StartsWith(pathNeamb)) oldPath = oldPath.Replace(pathNeamb, "");
+                    parentItem = db.GetItem(new ID("{5443128F-ED27-40A5-B84D-10C28B316800}"));
+                }
+                else
+                {
+                    if (parentPath.StartsWith(pathSeiumb)) oldPath = oldPath.Replace(pathSeiumb, "");
+                    parentItem = db.GetItem(new ID("{32322351-49C9-4679-9CCB-A3D4AEBC407D}"));
+                }
 
                 if (parentItem != null)
                 {
