@@ -14,6 +14,7 @@ namespace SharedSource.RedirectModule.Handlers
     {
         string pathNeamb = "/neamb/home";
         string pathSeiumb = "/neambc/home";
+        string pathSeiumbV2 = "/seiumb/home";
 
         protected void OnItemMoved(object sender, EventArgs args)
         {
@@ -55,10 +56,15 @@ namespace SharedSource.RedirectModule.Handlers
                     if (parentPath.StartsWith(pathNeamb)) oldPath = oldPath.Replace(pathNeamb, "");
                     parentItem = db.GetItem(new ID("{5443128F-ED27-40A5-B84D-10C28B316800}"));
                 }
-                else
+                else if(parentPath.Contains(pathSeiumb))
                 {
                     if (parentPath.StartsWith(pathSeiumb)) oldPath = oldPath.Replace(pathSeiumb, "");
                     parentItem = db.GetItem(new ID("{32322351-49C9-4679-9CCB-A3D4AEBC407D}"));
+                }
+                else if (parentPath.Contains(pathSeiumbV2))
+                {
+                    if (parentPath.StartsWith(pathSeiumbV2)) oldPath = oldPath.Replace(pathSeiumbV2, "");
+                    parentItem = db.GetItem(new ID("{81A29287-A5E4-455F-86CD-FE75C3116B78}"));
                 }
 
                 if (parentItem != null)
