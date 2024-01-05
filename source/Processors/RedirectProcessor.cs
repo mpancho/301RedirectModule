@@ -111,8 +111,8 @@ namespace SharedSource.RedirectModule.Processors
                 // Query portion gets in the way of getting the sitecore item.
                 var pathAndQuery = redirectPath.Split('?');
                 var path = pathAndQuery[0];
-                if (LinkManager.GetDefaultUrlOptions() != null &&
-                    LinkManager.GetDefaultUrlOptions().EncodeNames)
+                if (LinkManager.GetDefaultUrlBuilderOptions() != null &&
+                    LinkManager.GetDefaultUrlBuilderOptions().EncodeNames.Value)
                 {
                     path = Sitecore.MainUtil.DecodeName(path);
                 }
